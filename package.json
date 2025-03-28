@@ -14,5 +14,11 @@
   "type": "module",
   "workspaces": [
     "src/freelance-reputation-frontend"
-  ]
+  ],
+  "dependencies": {
+    "@dfinity/agent": "^2.4.0",
+    "@dfinity/candid": "^2.4.0",
+    "@dfinity/principal": "^2.4.0",
+    "react-router-dom": "^7.4.0"
+  }
 }
