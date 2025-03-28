@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AuthClient } from "@dfinity/auth-client";
 import { createActor } from '../../../declarations/freelance-reputation-backend/index';
-import Login from '../Auth/Login';
-import Navbar from '../layouts/Navbar';
 
 const AuthContext = createContext();
 
@@ -13,14 +11,9 @@ export const useAuthClient = () => {
     const [principal, setPrincipal] = useState(null);
     const [backendActor, setBackendActor] = useState(null);
 
-    const backendCanisterId =
-        process.env.CANISTER_ID_FREELANCE_REPUTATION_BACKEND ||
-        process.env.CANISTER_ID_FREELANCE_REPUTATION_BACKEND;
-
-    const frontendCanisterId =
-        process.env.CANISTER_ID_FRONTEND_CANISTER ||
-        process.env.FRONTEND_CANISTER_CANISTER_ID;
-        
+    const backendCanisterId = process.env.CANISTER_ID_FREELANCE_REPUTATION_BACKEND;
+    
+    // Function to update client state
     const clientInfo = async (client) => {
         const isAuthenticated = await client.isAuthenticated();
         const identity = client.getIdentity();
@@ -31,13 +24,11 @@ export const useAuthClient = () => {
         setIdentity(identity);
         setPrincipal(principal);
 
-        if (isAuthenticated && identity && principal && principal.isAnonymous() === false) {
+        if (isAuthenticated && !principal.isAnonymous()) {
             let backendActor = createActor(backendCanisterId, { agentOptions: { identity: identity } });
             setBackendActor(backendActor);
         }
-
-        return true;
-    }
+    };
 
     useEffect(() => {
         (async () => {
@@ -46,50 +37,39 @@ export const useAuthClient = () => {
         })();
     }, []);
 
+    // Internet Identity Login
     const login = async () => {
-        return new Promise(async (resolve, reject) => {
-            try {
-                if (authClient.isAuthenticated() && ((await authClient.getIdentity().getPrincipal().isAnonymous()) === false)) {
-                    resolve(clientInfo(authClient));
-                } else {
-                    await authClient.login({
-                        identityProvider: process.env.DFX_NETWORK === "ic"
-                            ? "https://identity.ic0.app/"
-                            : `http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943`,
-                        onError: (error) => reject((error)),
-                        onSuccess: () => resolve(clientInfo(authClient)),
-                    });
-                }
-            } catch (error) {
-                reject(error);
-            }
-        });
+        try {
+            const authClient = await AuthClient.create();
+            await authClient.login({
+                identityProvider: "https://identity.ic0.app/",
+                onSuccess: async () => {
+                    await clientInfo(authClient);
+                },
+                onError: (error) => console.error("Login failed", error),
+            });
+        } catch (error) {
+            console.error("Login failed", error);
+        }
     };
 
     const logout = async () => {
         await authClient?.logout();
-    }
+        setIsAuthenticated(false);
+    };
 
     return {
-        login, logout, authClient, isAuthenticated, identity, principal, frontendCanisterId, backendCanisterId, backendActor
+        login, logout, isAuthenticated, identity, principal, backendActor
     };
-}
+};
 
 export const AuthProvider = ({ children }) => {
     const auth = useAuthClient();
-    if (!auth.isAuthenticated || !auth.backendActor) {
-        return (
-            <AuthContext.Provider value={auth}>
-                <Navbar />
-                <Login />
-            </AuthContext.Provider>
-        )
-    }
     return (
         <AuthContext.Provider value={auth}>
             {children}
         </AuthContext.Provider>
-    )
+    );
 };
 
 export const useAuth = () => useContext(AuthContext);
